@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>PM5 Recorder</title>
+
+        <script src="pm5-base/lib/pm5-ble.js"></script>
+        <script src="pm5-base/lib/pm5-hid.js"></script>
+        <script src="pm5-base/lib/pm5-mock.js"></script>
+        <script src="pm5-base/lib/mock-data/csv-source.js"></script>
+        <script src="pm5-base/lib/pm5-fields.js"></script>
+        <script src="slots.js"></script>
+        <script src="csv.js"></script>
+        <script src="app.js"></script>
+
+        <link rel="stylesheet" href="style.css">
+    </head>
+
+    <body>
+        <header>
+            <h1>PM5 Recorder</h1>
+            <div id="controls">
+                <select id="transport" aria-label="Transport">
+                    <option value="bluetooth">Bluetooth</option>
+                    <option value="usb">USB</option>
+                    <option value="mock">Mock</option>
+                </select>
+                <select id="mock-speed" aria-label="Mock replay speed" hidden>
+                    <option value="1" selected>1x</option>
+                    <option value="2">2x</option>
+                    <option value="4">4x</option>
+                    <option value="8">8x</option>
+                    <option value="16">16x</option>
+                </select>
+                <button id="connect">Connect</button>
+            </div>
+        </header>
+
+        <main>
+            <div class="readout">
+                <div class="cell">
+                    <span class="cell-label">Time</span>
+                    <span class="cell-value" id="current-t">--</span>
+                </div>
+                <div class="cell">
+                    <span class="cell-label">Distance</span>
+                    <span class="cell-value" id="current-distance">--</span>
+                </div>
+                <div class="cell">
+                    <span class="cell-label">Pace /500m</span>
+                    <span class="cell-value" id="current-pace">--</span>
+                </div>
+                <div class="cell">
+                    <span class="cell-label">Watts</span>
+                    <span class="cell-value" id="current-watts">--</span>
+                </div>
+                <div class="cell">
+                    <span class="cell-label">Cal/Hr</span>
+                    <span class="cell-value" id="current-calPerHour">--</span>
+                </div>
+                <div class="cell">
+                    <span class="cell-label">Stroke Rate</span>
+                    <span class="cell-value" id="current-strokeRate">--</span>
+                </div>
+                <div class="cell">
+                    <span class="cell-label">Heart Rate</span>
+                    <span class="cell-value" id="current-heartRate">--</span>
+                </div>
+            </div>
+
+            <div id="recording-status">
+                <span id="sample-count">0</span> samples recorded
+                <button id="export" disabled>Export CSV</button>
+            </div>
+        </main>
+    </body>
+</html>
