@@ -1,0 +1,158 @@
+const el = sel => document.querySelector(sel);
+
+// Transport id -> how to build it and whether the browser supports it. All
+// three classes share the same EventTarget-native API (connect/disconnect/
+// connected + connecting/connected/disconnected events + MESSAGE_EVENTS), so
+// everything below is transport-agnostic.
+const TRANSPORTS = {
+    bluetooth: { label: 'Bluetooth', build: () => new PM5(),    supported: () => !!navigator.bluetooth },
+    usb:       { label: 'USB',       build: () => new PM5HID(), supported: () => !!navigator.hid },
+    mock: {
+        label: 'Mock',
+        build: () => new PM5Mock({
+            loadSamples: () => csvSource.loadFromUrl('pm5-base/lib/mock-data/concept2-result-44214428.csv'),
+            emulate: 'ble',
+            speed: Number(el('#mock-speed').value),
+            loop: true,
+        }),
+        supported: () => true,
+    },
+};
+
+// How to format each slot's live value for the readout -- pm5printables'
+// generic formatters apply directly, no need to look a key up in pm5fields.
+const SLOT_PRINTABLE = {
+    t:          pm5printables.secs2hms,
+    distance:   pm5printables.metres,
+    pace:       pm5printables.secs2hms,
+    watts:      pm5printables.watts,
+    calPerHour: pm5printables.calPerHour,
+    strokeRate: pm5printables.spm,
+    heartRate:  pm5printables.heartRate,
+};
+
+const SAMPLE_INTERVAL_MS = 1000;
+
+let monitor = null;
+let current = {};
+let samples = [];
+let sampleTimer = null;
+
+const updateReadout = () => {
+    for (const slot of Object.keys(SLOTS)) {
+        const value = current[slot];
+        el(`#current-${slot}`).textContent = value === undefined ? '--' : SLOT_PRINTABLE[slot](value);
+    }
+    el('#sample-count').textContent = samples.length;
+    el('#export').disabled = samples.length === 0;
+};
+
+const resetRecording = () => {
+    current = {};
+    samples = [];
+    updateReadout();
+};
+
+// Recording is decoupled from the event stream: a fixed-interval snapshot of
+// `current` sidesteps BLE's several-events-per-tick split (general-status /
+// additional-status / additional-stroke-data all arrive as separate events
+// sharing one elapsedTime) without needing to reconstruct which events
+// belong to the same hardware tick. isNewSample() guards against recording
+// the same tick twice when the source updates slower than this interval.
+const sampleTick = () => {
+    if (!isNewSample(current, samples.at(-1))) return;
+    samples.push({ ...current });
+    updateReadout();
+};
+
+const cbConnecting = () => {
+    el('#connect').textContent = 'Connecting';
+    el('#connect').disabled = true;
+    el('#transport').disabled = true;
+};
+
+const cbConnected = () => {
+    el('#connect').textContent = 'Disconnect';
+    el('#connect').disabled = false;
+    resetRecording();
+    sampleTimer = setInterval(sampleTick, SAMPLE_INTERVAL_MS);
+
+    // Instance-first: PM5Mock sets MESSAGE_EVENTS per instance (shape depends
+    // on `emulate`); PM5/PM5HID only have the static list.
+    const events = monitor.MESSAGE_EVENTS ?? monitor.constructor.MESSAGE_EVENTS;
+    for (const type of events) monitor.addEventListener(type, cbMessage);
+};
+
+const cbDisconnected = () => {
+    el('#connect').textContent = 'Connect';
+    el('#connect').disabled = false;
+    el('#transport').disabled = false;
+    clearInterval(sampleTimer);
+    sampleTimer = null;
+    monitor = null;
+};
+
+const cbMessage = (event) => {
+    current = applyEvent(current, event.data);
+    updateReadout();
+};
+
+const exportCsv = () => {
+    const blob = new Blob([toCsv(samples)], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `workout-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const transportSel = el('#transport');
+    const speedSel = el('#mock-speed');
+
+    // Flag unsupported transports and default to the first supported one.
+    let firstSupported = null;
+    for (const [id, t] of Object.entries(TRANSPORTS)) {
+        const opt = transportSel.querySelector(`option[value="${id}"]`);
+        if (!opt) continue;
+        if (t.supported()) {
+            firstSupported ??= id;
+        } else {
+            opt.disabled = true;
+            opt.textContent += ' (unsupported)';
+        }
+    }
+    if (firstSupported) transportSel.value = firstSupported;
+
+    // The speed control only applies to Mock.
+    const syncSpeedVisibility = () => { speedSel.hidden = transportSel.value !== 'mock'; };
+    syncSpeedVisibility();
+    transportSel.addEventListener('change', syncSpeedVisibility);
+    speedSel.addEventListener('change', () => monitor?.setSpeed?.(Number(speedSel.value)));
+
+    el('#connect').addEventListener('click', () => {
+        if (monitor?.connected()) {
+            monitor.disconnect();
+            return;
+        }
+
+        const t = TRANSPORTS[transportSel.value];
+        if (!t.supported()) {
+            alert(`${t.label} is not supported by this browser.`);
+            return;
+        }
+
+        monitor = t.build();
+        monitor.addEventListener('connecting', cbConnecting);
+        monitor.addEventListener('connected', cbConnected);
+        monitor.addEventListener('disconnected', cbDisconnected);
+
+        monitor.connect()
+            .then(() => { if (!monitor?.connected()) cbDisconnected(); })  // picker cancelled
+            .catch((error) => { console.log(error); cbDisconnected(); });
+    });
+
+    el('#export').addEventListener('click', exportCsv);
+    updateReadout();
+});

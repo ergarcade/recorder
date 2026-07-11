@@ -1,0 +1,91 @@
+:root {
+    color-scheme: light dark;
+    --bg: #f5f5f5;
+    --fg: #1a1a1a;
+    --border: #ccc;
+    --card: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #181818;
+        --fg: #eee;
+        --border: #444;
+        --card: #242424;
+    }
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+}
+
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+h1 {
+    font-size: 1.25rem;
+    margin: 0;
+}
+
+#controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+main {
+    max-width: 720px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.readout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.cell {
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    text-align: center;
+}
+
+.cell-label {
+    display: block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--border);
+    margin-bottom: 0.5rem;
+}
+
+.cell-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+#recording-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+}
