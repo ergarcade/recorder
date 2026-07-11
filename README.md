@@ -1,7 +1,9 @@
 # recorder
 
-Record a Concept2 PM5 ergometer session and export it as a CSV playable back in
-[pm5-base](https://github.com/ergarcade/pm5-base)'s example app.
+Record a Concept2 PM5 ergometer session and export it either as a Concept2
+Logbook CSV (playable back in
+[pm5-base](https://github.com/ergarcade/pm5-base)'s example app) or as a JSON
+dump of every raw event the monitor sent, for higher-fidelity playback.
 
 No build step, no package manager, no framework — plain HTML/CSS/JS.
 
@@ -15,8 +17,10 @@ python3 -m http.server 8000
 ```
 
 Then visit `http://localhost:8000/`, pick a transport, and click Connect.
-Recording starts automatically and samples once a second; click **Export
-CSV** any time after the first sample to download the workout so far.
+Recording starts automatically. Click **Export CSV (Concept2 Logbook)** any
+time after the first sample (once a second) to download the reduced-field
+CSV, or **Export Events (JSON)** to download every raw message the monitor
+sent, timestamped, for full-fidelity playback.
 
 ## Getting the code
 
@@ -42,8 +46,9 @@ git commit -m "Update pm5-base submodule"
 
 ## Tests
 
-`slots.js`'s event-merge logic and `csv.js`'s serialization (including a
-round-trip through pm5-base's own CSV parser) have node tests, no browser
+`slots.js`'s event-merge logic, `csv.js`'s serialization (including a
+round-trip through pm5-base's own CSV parser), and `events.js`'s raw-event
+capture (driven against a real `PM5Mock`) have node tests, no browser
 required:
 
 ```

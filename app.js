@@ -36,6 +36,8 @@ const SAMPLE_INTERVAL_MS = 1000;
 let monitor = null;
 let current = {};
 let samples = [];
+let events = [];
+let metricCards = new Map(); // raw key -> its value <span>, discovered lazily
 let sampleTimer = null;
 
 const updateReadout = () => {
@@ -45,12 +47,45 @@ const updateReadout = () => {
     }
     el('#sample-count').textContent = samples.length;
     el('#export').disabled = samples.length === 0;
+    el('#event-count').textContent = events.length;
+    el('#export-events').disabled = events.length === 0;
 };
 
 const resetRecording = () => {
     current = {};
     samples = [];
+    events = [];
+    metricCards = new Map();
+    el('#metric-cards').replaceChildren();
     updateReadout();
+};
+
+// One box per raw key, created the first time it's seen and updated in
+// place from then on -- unlike the canonical readout (fixed to SLOTS), this
+// surfaces every field the connected transport actually emits. `pm5fields`
+// covers every BLE/HID key (see pm5-base's test that asserts as much), so
+// the raw fallback is just a boundary guard against an unexpected key.
+const updateMetricCards = data => {
+    for (const [key, value] of Object.entries(data ?? {})) {
+        const field = pm5fields[key];
+        let valueEl = metricCards.get(key);
+        if (!valueEl) {
+            const card = document.createElement('div');
+            card.className = 'metric-card';
+
+            const label = document.createElement('span');
+            label.className = 'metric-card-label';
+            label.textContent = field?.label ?? key;
+
+            valueEl = document.createElement('span');
+            valueEl.className = 'metric-card-value';
+
+            card.append(label, valueEl);
+            el('#metric-cards').append(card);
+            metricCards.set(key, valueEl);
+        }
+        valueEl.textContent = field ? field.printable(value) : String(value);
+    }
 };
 
 // Recording is decoupled from the event stream: a fixed-interval snapshot of
@@ -94,6 +129,8 @@ const cbDisconnected = () => {
 
 const cbMessage = (event) => {
     current = applyEvent(current, event.data);
+    events.push(toEventRecord(event, Date.now()));
+    updateMetricCards(event.data);
     updateReadout();
 };
 
@@ -103,6 +140,16 @@ const exportCsv = () => {
     const a = document.createElement('a');
     a.href = url;
     a.download = `workout-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+};
+
+const exportEvents = () => {
+    const blob = new Blob([toEventsJson(events)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `workout-events-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
     a.click();
     URL.revokeObjectURL(url);
 };
@@ -154,5 +201,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     el('#export').addEventListener('click', exportCsv);
+    el('#export-events').addEventListener('click', exportEvents);
     updateReadout();
 });

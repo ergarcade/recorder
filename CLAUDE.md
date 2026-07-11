@@ -6,10 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `recorder` records a live Concept2 PM5 session (Bluetooth, USB, or a replayed
 mock workout, via [pm5-base](https://github.com/ergarcade/pm5-base)) and
-exports it as a Concept2-format workout CSV — the same format
-`pm5-base`'s `PM5Mock` replays, so a recorded file plays back directly in
-`pm5-base`'s example app or `virtual-monitor`. Plain HTML/CSS/JS, no build
-step, no framework.
+offers two exports:
+
+- **Export CSV (Concept2 Logbook)** — the reduced `SLOTS` fields, sampled
+  once a second, in the same CSV format `pm5-base`'s `PM5Mock` replays and
+  Concept2's Logbook accepts.
+- **Export Events (JSON)** — every raw message the monitor emitted, verbatim,
+  timestamped with wall-clock time. Higher fidelity than the CSV (nothing
+  reduced to `SLOTS`, nothing coalesced across BLE's per-tick sub-messages),
+  meant for richer playback than the CSV format's fixed columns can hold.
+
+Plain HTML/CSS/JS, no build step, no framework.
 
 `pm5-base` is a git submodule (tracking `master`) providing `PM5`/`PM5HID`/
 `PM5Mock` and the `pm5printables` formatter map — see its own
@@ -18,11 +25,12 @@ recording/export layer on top.
 
 ```
 index.html   page shell + live readout markup
-app.js       transport connect flow + recording lifecycle + CSV export
+app.js       transport connect flow + recording lifecycle + CSV/JSON export
 slots.js     pure event -> running-sample merge, DOM-free
 csv.js       pure sample-array -> CSV serialization, DOM-free
+events.js    pure raw-event -> JSON serialization, DOM-free
 style.css    readout styling
-test/        node tests for slots.js and csv.js
+test/        node tests for slots.js, csv.js and events.js
 pm5-base/    submodule
 ```
 
@@ -69,8 +77,19 @@ Recording is **decoupled from the event stream** rather than driven by it:
   additional-stroke-data all arrive as separate events sharing one
   `elapsedTime`) without having to reconstruct which events belong to the
   same hardware tick — samples are just whatever's known at each 1s mark.
-  **Export CSV** (`Blob` + `<a download>`, no library) is enabled once at
-  least one sample exists.
+  Separately, and independently of that 1s sampling, every message event
+  also gets wrapped by `toEventRecord(event, Date.now())` and pushed to the
+  `events` array — no reduction to `SLOTS`, no coalescing, one entry per raw
+  message (so one PM5 "tick" over BLE becomes 3 entries: general-status /
+  additional-status / additional-stroke-data). Both **Export CSV** and
+  **Export Events** (`Blob` + `<a download>`, no library) are enabled once
+  their respective array has at least one entry. `updateMetricCards(data)`
+  keeps one small DOM card per raw key, in a `metricCards` `Map`: the first
+  time a key is seen it creates the card (`pm5fields[key].label`, or the raw
+  key as a boundary-guard fallback), every time after it just updates that
+  card's value in place — so the card count is bounded by the number of
+  distinct keys the connected transport emits (tens, not thousands), unlike
+  a naive per-event log.
 - **`csv.js`** — `toCsv(samples)` is the mirror image of
   `pm5-base/lib/mock-data/csv-source.js`'s `parseCsv`: same column order
   (`Number,"Time (seconds)","Distance (meters)","Pace (seconds)",Watts,
@@ -79,8 +98,17 @@ Recording is **decoupled from the event stream** rather than driven by it:
   `csvSource.parseCsv` (`test/csv.test.mjs`) — the real proof an exported
   file is loadable back into `PM5Mock`, not just that the string looks
   right.
+- **`events.js`** — `toEventRecord(event, t)` and `toEventsJson(events)` are
+  the whole module: wrap `{ t, type: event.type, data: event.data }` and
+  `JSON.stringify`. Node-tested (`test/events.test.mjs`) by driving a real
+  `PM5Mock` instance and checking every dispatched sub-message is captured
+  and JSON round-trips.
 - **`index.html`** loads `pm5-base/lib/*.js` via `<script>` tags, then
-  `slots.js`, `csv.js`, `app.js`.
+  `slots.js`, `csv.js`, `events.js`, `app.js`. Page order top to bottom:
+  recording status/export card, the fixed "canonical" `.readout` cards
+  (`SLOTS` fields, always present), then `#metric-cards` — smaller cards,
+  one per raw key, appearing as each is first seen and updating in place
+  from then on.
 
 ### Adding a recorded field
 

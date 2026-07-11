@@ -82,10 +82,51 @@ main {
 
 #recording-status {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 0.75rem;
     padding: 1rem;
+    margin-bottom: 1.5rem;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--card);
+}
+
+.recording-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.count {
+    font-weight: 600;
+}
+
+.metric-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+}
+
+.metric-card {
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    text-align: center;
+}
+
+.metric-card-label {
+    display: block;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    color: var(--border);
+    margin-bottom: 0.2rem;
+}
+
+.metric-card-value {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    word-break: break-word;
 }
