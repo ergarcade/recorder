@@ -16,6 +16,10 @@ offers two exports:
   reduced to `SLOTS`, nothing coalesced across BLE's per-tick sub-messages),
   meant for richer playback than the CSV format's fixed columns can hold.
 
+The Mock transport can replay either export back: pick a `.csv` (Concept2
+Logbook format) or `.json` (ours) via `#mock-file`, or leave it unset to
+replay the shipped demo CSV as before.
+
 Plain HTML/CSS/JS, no build step, no framework.
 
 `pm5-base` is a git submodule (tracking `master`) providing `PM5`/`PM5HID`/
@@ -66,8 +70,17 @@ Recording is **decoupled from the event stream** rather than driven by it:
   unchanged. Pure, DOM-free, node-tested (`test/slots.test.mjs`).
 - **`app.js`** — the connect/lifecycle wiring (`TRANSPORTS` map, `connecting`/
   `connected`/`disconnected` handlers) is carried over near-verbatim from
-  `pm5-base/example/app.js` and `virtual-monitor`'s `app.js`. On every
-  message event, `current = applyEvent(current, event.data)` and the live
+  `pm5-base/example/app.js` and `virtual-monitor`'s `app.js`.
+  `TRANSPORTS.mock.build()` reads `#mock-file`'s selected file (hidden/shown
+  and enabled/disabled alongside `#mock-speed` and `#transport`, Mock-only,
+  locked while connected): no file falls back to the shipped demo CSV via
+  `loadSamples`, a `.json` file uses `loadEvents` (`eventsSource.loadFromFile`,
+  pm5-base), anything else uses `loadSamples` (`csvSource.loadFromFile`). A
+  bad/malformed upload surfaces through the existing `connect().catch(...)` —
+  no extra error handling needed, since parsing happens inside the loader
+  `PM5Mock.connect()` already awaits.
+
+  On every message event, `current = applyEvent(current, event.data)` and the live
   readout re-renders from `current` (formatted with `pm5printables`'
   generic formatters directly — no need to look anything up in `pm5fields`
   by transport-specific key name). Separately, a `setInterval` (1s, started

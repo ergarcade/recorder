@@ -9,12 +9,15 @@ const TRANSPORTS = {
     usb:       { label: 'USB',       build: () => new PM5HID(), supported: () => !!navigator.hid },
     mock: {
         label: 'Mock',
-        build: () => new PM5Mock({
-            loadSamples: () => csvSource.loadFromUrl('pm5-base/lib/mock-data/concept2-result-44214428.csv'),
-            emulate: 'ble',
-            speed: Number(el('#mock-speed').value),
-            loop: true,
-        }),
+        build: () => {
+            const file = el('#mock-file').files[0];
+            const source = !file
+                ? { loadSamples: () => csvSource.loadFromUrl('pm5-base/lib/mock-data/concept2-result-44214428.csv') }
+                : file.name.endsWith('.json')
+                ? { loadEvents: () => eventsSource.loadFromFile(file) }
+                : { loadSamples: () => csvSource.loadFromFile(file) };
+            return new PM5Mock({ ...source, emulate: 'ble', speed: Number(el('#mock-speed').value), loop: true });
+        },
         supported: () => true,
     },
 };
@@ -104,6 +107,7 @@ const cbConnecting = () => {
     el('#connect').textContent = 'Connecting';
     el('#connect').disabled = true;
     el('#transport').disabled = true;
+    el('#mock-file').disabled = true;
 };
 
 const cbConnected = () => {
@@ -122,6 +126,7 @@ const cbDisconnected = () => {
     el('#connect').textContent = 'Connect';
     el('#connect').disabled = false;
     el('#transport').disabled = false;
+    el('#mock-file').disabled = false;
     clearInterval(sampleTimer);
     sampleTimer = null;
     monitor = null;
@@ -157,6 +162,7 @@ const exportEvents = () => {
 document.addEventListener('DOMContentLoaded', () => {
     const transportSel = el('#transport');
     const speedSel = el('#mock-speed');
+    const fileSel = el('#mock-file');
 
     // Flag unsupported transports and default to the first supported one.
     let firstSupported = null;
@@ -172,10 +178,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (firstSupported) transportSel.value = firstSupported;
 
-    // The speed control only applies to Mock.
-    const syncSpeedVisibility = () => { speedSel.hidden = transportSel.value !== 'mock'; };
-    syncSpeedVisibility();
-    transportSel.addEventListener('change', syncSpeedVisibility);
+    // The speed control and file picker only apply to Mock.
+    const syncMockControlsVisibility = () => {
+        const isMock = transportSel.value === 'mock';
+        speedSel.hidden = !isMock;
+        fileSel.hidden = !isMock;
+    };
+    syncMockControlsVisibility();
+    transportSel.addEventListener('change', syncMockControlsVisibility);
     speedSel.addEventListener('change', () => monitor?.setSpeed?.(Number(speedSel.value)));
 
     el('#connect').addEventListener('click', () => {
