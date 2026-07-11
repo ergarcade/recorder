@@ -9,12 +9,15 @@ const TRANSPORTS = {
     usb:       { label: 'USB',       build: () => new PM5HID(), supported: () => !!navigator.hid },
     mock: {
         label: 'Mock',
-        build: () => new PM5Mock({
-            loadSamples: () => csvSource.loadFromUrl('pm5-base/lib/mock-data/concept2-result-44214428.csv'),
-            emulate: 'ble',
-            speed: Number(el('#mock-speed').value),
-            loop: true,
-        }),
+        build: () => {
+            const file = el('#mock-file').files[0];
+            const source = !file
+                ? { loadSamples: () => csvSource.loadFromUrl('pm5-base/lib/mock-data/concept2-result-44214428.csv') }
+                : file.name.endsWith('.json')
+                ? { loadEvents: () => eventsSource.loadFromFile(file) }
+                : { loadSamples: () => csvSource.loadFromFile(file) };
+            return new PM5Mock({ ...source, emulate: 'ble', speed: Number(el('#mock-speed').value), loop: true });
+        },
         supported: () => true,
     },
 };
@@ -36,6 +39,8 @@ const SAMPLE_INTERVAL_MS = 1000;
 let monitor = null;
 let current = {};
 let samples = [];
+let events = [];
+let metricCards = new Map(); // raw key -> its value <span>, discovered lazily
 let sampleTimer = null;
 
 const updateReadout = () => {
@@ -45,12 +50,45 @@ const updateReadout = () => {
     }
     el('#sample-count').textContent = samples.length;
     el('#export').disabled = samples.length === 0;
+    el('#event-count').textContent = events.length;
+    el('#export-events').disabled = events.length === 0;
 };
 
 const resetRecording = () => {
     current = {};
     samples = [];
+    events = [];
+    metricCards = new Map();
+    el('#metric-cards').replaceChildren();
     updateReadout();
+};
+
+// One box per raw key, created the first time it's seen and updated in
+// place from then on -- unlike the canonical readout (fixed to SLOTS), this
+// surfaces every field the connected transport actually emits. `pm5fields`
+// covers every BLE/HID key (see pm5-base's test that asserts as much), so
+// the raw fallback is just a boundary guard against an unexpected key.
+const updateMetricCards = data => {
+    for (const [key, value] of Object.entries(data ?? {})) {
+        const field = pm5fields[key];
+        let valueEl = metricCards.get(key);
+        if (!valueEl) {
+            const card = document.createElement('div');
+            card.className = 'metric-card';
+
+            const label = document.createElement('span');
+            label.className = 'metric-card-label';
+            label.textContent = field?.label ?? key;
+
+            valueEl = document.createElement('span');
+            valueEl.className = 'metric-card-value';
+
+            card.append(label, valueEl);
+            el('#metric-cards').append(card);
+            metricCards.set(key, valueEl);
+        }
+        valueEl.textContent = field ? field.printable(value) : String(value);
+    }
 };
 
 // Recording is decoupled from the event stream: a fixed-interval snapshot of
@@ -69,6 +107,7 @@ const cbConnecting = () => {
     el('#connect').textContent = 'Connecting';
     el('#connect').disabled = true;
     el('#transport').disabled = true;
+    el('#mock-file').disabled = true;
 };
 
 const cbConnected = () => {
@@ -87,6 +126,7 @@ const cbDisconnected = () => {
     el('#connect').textContent = 'Connect';
     el('#connect').disabled = false;
     el('#transport').disabled = false;
+    el('#mock-file').disabled = false;
     clearInterval(sampleTimer);
     sampleTimer = null;
     monitor = null;
@@ -94,6 +134,8 @@ const cbDisconnected = () => {
 
 const cbMessage = (event) => {
     current = applyEvent(current, event.data);
+    events.push(toEventRecord(event, Date.now()));
+    updateMetricCards(event.data);
     updateReadout();
 };
 
@@ -107,9 +149,20 @@ const exportCsv = () => {
     URL.revokeObjectURL(url);
 };
 
+const exportEvents = () => {
+    const blob = new Blob([toEventsJson(events)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `workout-events-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     const transportSel = el('#transport');
     const speedSel = el('#mock-speed');
+    const fileSel = el('#mock-file');
 
     // Flag unsupported transports and default to the first supported one.
     let firstSupported = null;
@@ -125,10 +178,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (firstSupported) transportSel.value = firstSupported;
 
-    // The speed control only applies to Mock.
-    const syncSpeedVisibility = () => { speedSel.hidden = transportSel.value !== 'mock'; };
-    syncSpeedVisibility();
-    transportSel.addEventListener('change', syncSpeedVisibility);
+    // The speed control and file picker only apply to Mock.
+    const syncMockControlsVisibility = () => {
+        const isMock = transportSel.value === 'mock';
+        speedSel.hidden = !isMock;
+        fileSel.hidden = !isMock;
+    };
+    syncMockControlsVisibility();
+    transportSel.addEventListener('change', syncMockControlsVisibility);
     speedSel.addEventListener('change', () => monitor?.setSpeed?.(Number(speedSel.value)));
 
     el('#connect').addEventListener('click', () => {
@@ -154,5 +211,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     el('#export').addEventListener('click', exportCsv);
+    el('#export-events').addEventListener('click', exportEvents);
     updateReadout();
 });
