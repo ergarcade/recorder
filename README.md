@@ -27,6 +27,8 @@ Picking **Mock** reveals a file picker: choose a previously exported `.csv`
 the shipped demo workout — handy for testing playback of your own
 recordings.
 
+Click the "i" button next to the title for the same info in-app.
+
 ## Getting the code
 
 This repo pulls in `pm5-base` as a git submodule, so clone with:

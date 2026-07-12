@@ -11,11 +11,13 @@
         <script src="pm5-base/lib/mock-data/csv-source.js"></script>
         <script src="pm5-base/lib/mock-data/events-source.js"></script>
         <script src="pm5-base/lib/pm5-fields.js"></script>
+        <script src="pm5-base/ui/info-modal.js"></script>
         <script src="slots.js"></script>
         <script src="csv.js"></script>
         <script src="events.js"></script>
         <script src="app.js"></script>
 
+        <link rel="stylesheet" href="pm5-base/ui/info-modal.css">
         <link rel="stylesheet" href="style.css">
     </head>
 
@@ -41,6 +43,53 @@
         </header>
 
         <main>
+            <dialog id="info-modal">
+                <button data-close aria-label="Close">&times;</button>
+
+                <p>
+                <strong>PM5 Recorder</strong> connects to a
+                <a target="_blank" href="https://www.concept2.com/indoor-rowers/performance-monitors">Concept2
+                PM5</a> monitor &mdash; over <strong>Bluetooth</strong> (wireless) or <strong>USB</strong>
+                &mdash; and records the session, with two exports:
+                </p>
+                <ul>
+                    <li><strong>Export CSV (Concept2 Logbook)</strong> &mdash; the reduced fields, sampled
+                        once a second, in the format Concept2's own Logbook accepts.</li>
+                    <li><strong>Export Events (JSON)</strong> &mdash; every raw message the monitor emitted,
+                        verbatim, for higher-fidelity playback than the CSV format's fixed columns allow.</li>
+                </ul>
+
+                <h2>Requirements</h2>
+                <ul>
+                    <li><strong>Bluetooth:</strong> a
+                        <a target="_blank" href="https://caniuse.com/#feat=web-bluetooth">Web Bluetooth</a>
+                        browser (Chrome/Edge on desktop) and the PM5's wireless turned on.</li>
+                    <li><strong>USB:</strong> Chrome or Edge (Web HID is not supported in Firefox or Safari)
+                        with the PM5 connected by USB.</li>
+                </ul>
+
+                <h2>Usage</h2>
+                <ul>
+                    <li>Pick <strong>Bluetooth</strong> or <strong>USB</strong>, click <strong>Connect</strong>,
+                        and pick the PM5 from the browser's device picker.</li>
+                    <li>Row, ski, or bike. The canonical stats update live, and every raw metric the
+                        monitor reports appears below as its own card.</li>
+                    <li>Click <strong>Export CSV</strong> or <strong>Export Events</strong> once a
+                        session has recorded anything.</li>
+                </ul>
+
+                <h2>Mock</h2>
+                <p>
+                Pick <strong>Mock</strong> to try it without hardware. Choose a replay speed, optionally
+                upload a previously recorded workout (a Concept2 Logbook <code>.csv</code> export, or one of
+                this app's own <code>.json</code> Export Events files), and click <strong>Connect</strong>.
+                Leave the file picker empty to replay a bundled demo workout instead.
+                </p>
+                <p>
+                <a target="_blank" href="https://github.com/ergarcade/recorder">Source on GitHub</a>.
+                </p>
+            </dialog>
+
             <div id="recording-status">
                 <div class="recording-row">
                     <span><span id="sample-count" class="count">0</span> samples recorded</span>

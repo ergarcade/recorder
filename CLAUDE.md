@@ -131,7 +131,10 @@ Recording is **decoupled from the event stream** rather than driven by it:
   `PM5Mock` instance and checking every dispatched sub-message is captured
   and JSON round-trips.
 - **`index.html`** loads `pm5-base/lib/*.js` via `<script>` tags, then
-  `slots.js`, `csv.js`, `events.js`, `app.js`. Page order top to bottom:
+  `pm5-base/ui/info-modal.js`, `slots.js`, `csv.js`, `events.js`, `app.js`.
+  Page order top to bottom: the `#info-modal` dialog (content only — its
+  open/close wiring is `initInfoModal()`, called from `app.js`'s
+  `DOMContentLoaded`, see `pm5-base/README.md`'s "Shared header UI" section),
   recording status/export card, the fixed "canonical" `.readout` cards
   (`SLOTS` fields, always present), then `#metric-cards` — smaller cards,
   one per raw key, appearing as each is first seen and updating in place

@@ -216,4 +216,5 @@ document.addEventListener('DOMContentLoaded', () => {
     el('#export').addEventListener('click', exportCsv);
     el('#export-events').addEventListener('click', exportEvents);
     updateReadout();
+    initInfoModal();
 });
