@@ -103,6 +103,20 @@ Recording is **decoupled from the event stream** rather than driven by it:
   card's value in place — so the card count is bounded by the number of
   distinct keys the connected transport emits (tens, not thousands), unlike
   a naive per-event log.
+
+  `cbMessage` also tracks a module-level `machineType`, set whenever an
+  event carries `ergMachineType` (BLE-only, sticky once seen — a session
+  doesn't change machines mid-workout) and passed as the pace formatter's
+  second argument in both `updateReadout` (`SLOT_PRINTABLE.pace`, now
+  `pm5printables.pace`) and `updateMetricCards` — see `pm5-base`'s notes on
+  why pace needs it (BikeErg's pace unit is /1000m, not /500m). Every other
+  slot/field's printable ignores the extra argument, so it's passed
+  unconditionally rather than special-cased. **This only affects the live
+  display** — `samples` (and therefore the CSV export) still store the raw,
+  untouched seconds value straight from the transport, since that's what
+  Concept2's own Logbook CSV format and `PM5Mock`'s replay both expect;
+  doubling it there would break round-tripping a recording back through
+  Mock.
 - **`csv.js`** — `toCsv(samples)` is the mirror image of
   `pm5-base/lib/mock-data/csv-source.js`'s `parseCsv`: same column order
   (`Number,"Time (seconds)","Distance (meters)","Pace (seconds)",Watts,

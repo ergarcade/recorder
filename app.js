@@ -27,7 +27,7 @@ const TRANSPORTS = {
 const SLOT_PRINTABLE = {
     t:          pm5printables.secs2hms,
     distance:   pm5printables.metres,
-    pace:       pm5printables.secs2hms,
+    pace:       pm5printables.pace,
     watts:      pm5printables.watts,
     calPerHour: pm5printables.calPerHour,
     strokeRate: pm5printables.spm,
@@ -41,12 +41,13 @@ let current = {};
 let samples = [];
 let events = [];
 let metricCards = new Map(); // raw key -> its value <span>, discovered lazily
+let machineType; // last-seen ergMachineType (BLE-only); undefined -> pace prints /500m
 let sampleTimer = null;
 
 const updateReadout = () => {
     for (const slot of Object.keys(SLOTS)) {
         const value = current[slot];
-        el(`#current-${slot}`).textContent = value === undefined ? '--' : SLOT_PRINTABLE[slot](value);
+        el(`#current-${slot}`).textContent = value === undefined ? '--' : SLOT_PRINTABLE[slot](value, machineType);
     }
     el('#sample-count').textContent = samples.length;
     el('#export').disabled = samples.length === 0;
@@ -59,6 +60,7 @@ const resetRecording = () => {
     samples = [];
     events = [];
     metricCards = new Map();
+    machineType = undefined;
     el('#metric-cards').replaceChildren();
     updateReadout();
 };
@@ -87,7 +89,7 @@ const updateMetricCards = data => {
             el('#metric-cards').append(card);
             metricCards.set(key, valueEl);
         }
-        valueEl.textContent = field ? field.printable(value) : String(value);
+        valueEl.textContent = field ? field.printable(value, machineType) : String(value);
     }
 };
 
@@ -133,6 +135,7 @@ const cbDisconnected = () => {
 };
 
 const cbMessage = (event) => {
+    if (event.data.ergMachineType !== undefined) machineType = event.data.ergMachineType;
     current = applyEvent(current, event.data);
     events.push(toEventRecord(event, Date.now()));
     updateMetricCards(event.data);
